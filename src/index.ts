@@ -69,6 +69,18 @@ class LokAPI {
         return true
     }
 
+
+    /**
+     * get given user's profile
+     *
+     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
+     *
+     * @returns Object
+     */
+     async getUserProfile(userId: number) {
+         return this.odoo.getUserProfile(userId)
+     }
+
 }
 
 
