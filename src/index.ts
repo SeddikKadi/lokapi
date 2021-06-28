@@ -29,6 +29,8 @@ class LokAPI {
 
     // User data
 
+    public apiToken: string
+
     public userData: {
         login: string
         partner_id: number
