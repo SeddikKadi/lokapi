@@ -1,21 +1,17 @@
-
 /**
  * Base object to implement common API between data from
  * different backends.
  */
 export class BridgeObject {
-
     // XXXvlab: TODO: define IBackend
-    backend: any
+    backend: any;
 
-    jsonData: any
+    jsonData: any;
 
     constructor(backend, jsonData) {
-        this.backend = backend
-        this.jsonData = jsonData
+        this.backend = backend;
+        this.jsonData = jsonData;
     }
 }
 
-
-export var BackendFactories = {}
-
+export const BackendFactories = {};

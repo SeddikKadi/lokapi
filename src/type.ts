@@ -1,25 +1,19 @@
-
-
 export interface IHttpRequest {
-    request(opts): Object
-
+    request(opts): Promise<any>;
 }
 
-
-export type coreHttpOpts = {
-    host: string
-    path: string
-    method: "GET" | "POST"
-    headers?: {}
-    data?: {}
+export interface coreHttpOpts {
+    host: string;
+    path: string;
+    method: 'GET' | 'POST';
+    headers?: {};
+    data?: {};
 }
 
-
-export type HttpOpts = {
-    method: "GET" | "POST"
-    headers?: {}
-    data?: {}
+export interface HttpOpts {
+    method: 'GET' | 'POST';
+    headers?: {};
+    data?: {};
 }
 
-
-export type Base64Encode = (s: string) => string
+export type Base64Encode = (s: string) => string;

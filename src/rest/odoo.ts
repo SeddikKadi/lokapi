@@ -1,60 +1,53 @@
-import * as e from "./exception"
+import * as e from './exception';
 
-
-import { JsonRESTClient } from "."
-
+import { JsonRESTClient } from '.';
 
 export class OdooREST extends JsonRESTClient {
-
-    dbName: string
-    apiToken: string
+    dbName: string;
+    apiToken: string;
 
     userData: {
-        login: string
-        partner_id: number
-        uid: number
-    }
-    userProfile: any
-
+        login: string;
+        partner_id: number;
+        uid: number;
+    };
+    userProfile: any;
 
     constructor(host: string, dbName: string, mixin: any) {
-        super(host, mixin)
-        this.dbName = dbName
+        super(host, mixin);
+        this.dbName = dbName;
     }
-
 
     async authenticate(login: string, password: string): Promise<any> {
         try {
-            let { response } = await this._req(
-                '/lokavaluto_api/public/auth/authenticate', {
-                method: "POST",
+            const { response } = await this._req('/lokavaluto_api/public/auth/authenticate', {
+                method: 'POST',
                 headers: {
-                    Authorization: `Basic ${this.base64encode(`${login}:${password}`)}`,
+                    Authorization: `Basic ${this.base64encode(`${login}:${password}`)}`
                 },
                 data: {
                     db: this.dbName,
                     params: ['lcc_app']
                 }
             });
-            if (response.status == "Error") {
-                if (response.message == "access denied")
-                    throw new e.InvalidCredentials("Access denied")
-                else
-                    throw new e.APIRequestFailed(`Could not obtain token: ${response.error} `)
+            if (response.status === 'Error') {
+                if (response.message === 'access denied') {
+                    throw new e.InvalidCredentials('Access denied');
+                } else throw new e.APIRequestFailed(`Could not obtain token: ${response.error} `);
             }
             this.authHeaders = {
-                "API-KEY": response.api_token,
-            }
+                'API-KEY': response.api_token
+            };
             return {
-                login: login,
+                login,
                 partner_id: response.partner_id,
                 uid: response.uid,
                 backends: response.monujo_accounts
-            }
+            };
         } catch (err) {
-            console.log('getToken failed: ', err.message)
-            this.apiToken = undefined
-            throw err
+            console.log('getToken failed: ', err.message);
+            this.apiToken = undefined;
+            throw err;
         }
     }
 
@@ -71,11 +64,10 @@ export class OdooREST extends JsonRESTClient {
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      */
     async login(login: string, password: string): Promise<any> {
-        this.userData = await this.authenticate(login, password)
+        this.userData = await this.authenticate(login, password);
         this.userProfile = await this.getUserProfile(this.userData.partner_id);
-        return this.userData
+        return this.userData;
     }
-
 
     // apiUrl = {
     //     getUserProfile: {
@@ -90,10 +82,8 @@ export class OdooREST extends JsonRESTClient {
      */
     async getUserProfile(userId: number) {
         const profile = await this._authReq(`/lokavaluto_api/private/partner/${userId}`, {
-            method: "GET"
-        })
-        return profile || null
+            method: 'GET'
+        });
+        return profile || null;
     }
-
 }
-

@@ -1,40 +1,34 @@
+import { JsonRESTClient } from '../../rest';
 
-import { JsonRESTClient } from "../../rest"
+import { CyclosAccount } from './account';
 
-import { CyclosAccount } from "./account"
-
-import { BackendFactories } from ".."
-
+import { BackendFactories } from '..';
 
 export class CyclosBackend extends JsonRESTClient {
+    owner_id: string;
 
-    owner_id: string
-
-    mixin: any
+    mixin: any;
 
     constructor(accountData, mixin) {
-        super(accountData.host || "cyclos.dev.lokavaluto.fr", mixin)
-        this.authHeaders = { "Session-token": accountData.cyclos_token }
-        this.owner_id = accountData.cyclos_id
+        super(accountData.host || 'cyclos.dev.lokavaluto.fr', mixin);
+        this.authHeaders = { 'Session-token': accountData.cyclos_token };
+        this.owner_id = accountData.cyclos_id;
     }
-
 
     get accounts() {
         return (async () => {
-            let jsonAccounts = await this._authReq(`/api/${this.owner_id}/accounts`, {
-                method: "GET",
-            })
+            const jsonAccounts = await this._authReq(`/api/${this.owner_id}/accounts`, {
+                method: 'GET'
+            });
 
-            let accounts = []
+            const accounts = [];
 
-            jsonAccounts.forEach(jsonAccountData => {
-                accounts.push(new CyclosAccount(this, jsonAccountData))
-            })
-            return accounts
-        })()
+            jsonAccounts.forEach((jsonAccountData) => {
+                accounts.push(new CyclosAccount(this, jsonAccountData));
+            });
+            return accounts;
+        })();
     }
-
 }
 
-
-BackendFactories['cyclos'] = CyclosBackend
+BackendFactories['cyclos'] = CyclosBackend;

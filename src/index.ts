@@ -1,53 +1,47 @@
+import { OdooREST } from './rest/odoo';
 
-import { OdooREST } from "./rest/odoo"
+import * as e from './rest/exception';
+import * as t from './type';
 
-import * as e from "./rest/exception"
-import * as t from "./type"
-
-import { BackendFactories } from "./backend"
-
+import { BackendFactories } from './backend';
 
 // Load backends
 
-import "./backend/cyclos"
-
-
+import './backend/cyclos';
 
 class LokAPI {
-
     // In charge with all odoo requests
 
-    private odoo: OdooREST
+    private odoo: OdooREST;
 
     // These are kind of exchangeable libraries
 
     private mixin: {
-        httpRequest: t.IHttpRequest,
-        base64encode: t.Base64Encode,
-        backendFactory: any
-    }
+        httpRequest: t.IHttpRequest;
+        base64encode: t.Base64Encode;
+        backendFactory: any;
+    };
 
     // User data
 
-    public apiToken: string
+    public apiToken: string;
 
     public userData: {
-        login: string
-        partner_id: number
-        uid: number
-    }
+        login: string;
+        partner_id: number;
+        uid: number;
+    };
 
-    public userProfile: any
+    public userProfile: any;
 
-    public backends: any
+    public backends: any;
 
     constructor(host: string, dbName: string, mixin: any) {
-        this.odoo = new OdooREST(host, dbName, mixin)
+        this.odoo = new OdooREST(host, dbName, mixin);
 
         // Keeping them to forward to account REST access
-        this.mixin = mixin
+        this.mixin = mixin;
     }
-
 
     /**
      * Log in to Lokavaluto Odoo server target API.
@@ -61,16 +55,15 @@ class LokAPI {
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      */
     public async login(login: string, password: string): Promise<any> {
-        let userData = await this.odoo.login(login, password)
-        let mixin = this.mixin
-        let backends = []
-        userData.backends.forEach(accountData => {
-            backends.push(new BackendFactories[accountData.type](accountData, mixin))
-        })
-        this.backends = backends
-        return true
+        const userData = await this.odoo.login(login, password);
+        const mixin = this.mixin;
+        const backends = [];
+        userData.backends.forEach((accountData) => {
+            backends.push(new BackendFactories[accountData.type](accountData, mixin));
+        });
+        this.backends = backends;
+        return true;
     }
-
 
     /**
      * get given user's profile
@@ -79,11 +72,9 @@ class LokAPI {
      *
      * @returns Object
      */
-     async getUserProfile(userId: number) {
-         return this.odoo.getUserProfile(userId)
-     }
-
+    async getUserProfile(userId: number) {
+        return this.odoo.getUserProfile(userId);
+    }
 }
 
-
-export { LokAPI, e, t }
+export { LokAPI, e, t };
