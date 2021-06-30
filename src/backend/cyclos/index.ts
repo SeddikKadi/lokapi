@@ -15,19 +15,17 @@ export class CyclosBackend extends JsonRESTClient {
         this.owner_id = accountData.cyclos_id;
     }
 
-    get accounts() {
-        return (async () => {
-            const jsonAccounts = await this._authReq(`/api/${this.owner_id}/accounts`, {
-                method: 'GET'
-            });
+    async getAccounts() {
+        const jsonAccounts = await this._authReq(`/api/${this.owner_id}/accounts`, {
+            method: 'GET'
+        });
 
-            const accounts = [];
+        const accounts: CyclosAccount[] = [];
 
-            jsonAccounts.forEach((jsonAccountData) => {
-                accounts.push(new CyclosAccount(this, jsonAccountData));
-            });
-            return accounts;
-        })();
+        jsonAccounts.forEach((jsonAccountData) => {
+            accounts.push(new CyclosAccount(this, jsonAccountData));
+        });
+        return accounts;
     }
 }
 
