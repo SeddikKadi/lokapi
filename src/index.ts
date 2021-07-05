@@ -1,47 +1,23 @@
-import { OdooREST } from './rest/odoo';
 
-import * as e from './rest/exception';
-import * as t from './type';
+import { OdooRESTAbstract } from "./rest/odoo"
 
-import { BackendFactories } from './backend';
+import * as e from "./rest/exception"
+import * as t from "./type"
+
+import { BackendFactories } from "./backend"
+
 
 // Load backends
 
-import './backend/cyclos';
+import "./backend/cyclos"
 
-class LokAPI {
-    // In charge with all odoo requests
 
-    private odoo: OdooREST;
-
-    // These are kind of exchangeable libraries
-
-    private mixin: {
-        httpRequest: t.IHttpRequest;
-        base64encode: t.Base64Encode;
-        backendFactory: any;
-    };
+abstract class LokAPIAbstract extends OdooRESTAbstract {
 
     // User data
 
-    public apiToken: string;
+    public backends: any
 
-    public userData: {
-        login: string;
-        partner_id: number;
-        uid: number;
-    };
-
-    public userProfile: any;
-
-    public backends: any;
-
-    constructor(host: string, dbName: string, mixin: any) {
-        this.odoo = new OdooREST(host, dbName, mixin);
-
-        // Keeping them to forward to account REST access
-        this.mixin = mixin;
-    }
 
     /**
      * Log in to Lokavaluto Odoo server target API.
@@ -55,36 +31,34 @@ class LokAPI {
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      */
     public async login(login: string, password: string): Promise<any> {
-        const userData = await this.odoo.login(login, password);
-        const mixin = this.mixin;
-        const backends = [];
-        userData.backends.forEach((accountData) => {
-            backends.push(new BackendFactories[accountData.type](accountData, mixin));
-        });
-        this.backends = backends;
-        return true;
+        let userData = await super.login(login, password)
+        let backends = []
+        let { httpRequest, base64Encode } = this
+        if (userData.backends) {
+            userData.backends.forEach(accountData => {
+                let BackendClassAbstract = BackendFactories[accountData.type]
+                if (!BackendClassAbstract) {
+                    console.log(`Data received for unknown backend ${accountData.type}`)
+                    return;
+                }
+                class Backend extends BackendClassAbstract {
+                    httpRequest = httpRequest
+                    base64Encode = base64Encode
+
+                    // This function declaration seems necessary for typescript
+                    // to avoid having issues with this dynamic abstract class
+                    constructor(...args) { super(...args) }
+                }
+                backends.push(new Backend(accountData))
+            })
+            this.backends = backends
+        } else {
+            this.backends = []
+        }
+        return true
     }
 
-    /**
-     * get given user's profile
-     *
-     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
-     *
-     * @returns Object
-     */
-    async getUserProfile(userId: number) {
-        return this.odoo.getUserProfile(userId);
-    }
- /**
-     * get user accounts
-     *
-     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
-     *
-     * @returns Object
-     */
-    async getAccounts() {
-        return this.backends[0].getAccounts();
-    }
 }
 
-export { LokAPI, e, t };
+
+export { LokAPIAbstract, e, t }

@@ -14,9 +14,9 @@ lokavaluto's server.
 #+LATEX: \pagebreak
 
 
-* Usage
 
-** Adding =lokapi= to your project
+
+* Adding =lokapi= to your project
 
 From the root of your project:
 
@@ -33,13 +33,21 @@ npm install --save Lokavaluto/lokapi#master
 To be sure to get the latest version, relaunch this last command
 whenever you want to update.
 
-** Using =lokapi=
+* Setting up =lokapi=
 
-*** Instantiating main object
+** Subclassing main LokAPIAbstract
 
-Lokapi will require a way to make HTTP request. Depending on your
-platform or environment, you might have different way to implement
-these.
+Lokapi will require a way to make HTTP request, access to a permanent
+store, or various other tasks. Depending on your platform or
+environment, you might have different way to implement these.
+
+To inject these exchangeable dependency, you are invited to subclass
+LokAPIAbstract and define these objects:
+
+- httpRequest :: an implementation of =HTTPRequest=
+- base64Encode :: a function to encode a string to base64
+
+** Instanciating lokapi
 
 On instantiation time, =LokAPI= class will require you to provide:
 
@@ -47,12 +55,8 @@ On instantiation time, =LokAPI= class will require you to provide:
 
   - database :: as a =string= (example: "myodoodb")
 
-  - mixin :: as a simple =Object= containing two keys:
 
-      - httpRequest :: an implementation of =IHTTPRequest=
-      - base64encode :: a function to encode a string to base64
-
-**** Example for node
+*** Example for node
 
 
 Using node's core =https= as HTTP requestion implementation:
@@ -62,11 +66,14 @@ Using node's core =https= as HTTP requestion implementation:
 
 import https from "https"
 
-import { LokAPI, e as LokAPIExc, t as LokAPIType } from "lokapi"
+import { LokAPIAbstract, e as LokAPIExc, t as LokAPIType } from "lokapi"
 
+class NodeLokAPI extends LokApiAbstract {
 
-let coreHttpRequest: LokAPIType.IHttpRequest = {
-    request: (opts: LokAPIType.coreHttpOpts) => {
+    httpRequest = (opts: LokAPIType.coreHttpOpts) => {
+        if (opts.protocol !== 'https') {
+            throw new Error(`Protocol ${opts.protocol} unsupported by this implementation`)
+        }
         const httpsOpts: LokAPIType.coreHttpOpts = {
             host: opts.host,
             path: opts.path,
@@ -101,7 +108,10 @@ let coreHttpRequest: LokAPIType.IHttpRequest = {
             });
         })
 
-    },
+    }
+
+    base64Encode = (s: string) => Buffer.from(s).toString('base64')
+
 }
 
 
@@ -118,15 +128,11 @@ if (!process.env.VUE_APP_LOKAPI_DB) {
 var lokAPI = new LokAPI(
     process.env.VUE_APP_LOKAPI_HOST,
     process.env.VUE_APP_LOKAPI_DB,
-    {
-        httpRequest: coreHttpRequest,
-        base64encode: (s: string) => Buffer.from(s).toString('base64'),
-    }
 )
 #+end_src
 
 
-**** Example for =nativescript=
+*** Example for =nativescript=
 
 Using =@nativescript-community/https= as HTTP request implementation:
 
@@ -134,13 +140,14 @@ Using =@nativescript-community/https= as HTTP request implementation:
 #+begin_src typescript
   import * as https from '@nativescript-community/https';
 
-  import { LokAPI, e as LokAPIExc, t as LokAPIType } from "lokapi"
+  import { LokAPIAbstract, e as LokAPIExc, t as LokAPIType } from "lokapi"
 
 
-  let nativeHttpRequest: LokAPIType.IHttpRequest = {
-      request: async (opts: LokAPIType.coreHttpOpts) => {
+  class NativeLokAPI extends LokAPIAbstract {
+
+      httpRequest = async (opts: LokAPIType.coreHttpOpts) => {
           const nativeRequestOpts = {
-              url: "https://" + opts.host + opts.path,
+              url: opts.protocol + "://" + opts.host + opts.path,
               method: opts.method,
               headers: opts.headers,
               body: opts.data,
@@ -162,32 +169,21 @@ Using =@nativescript-community/https= as HTTP request implementation:
               throw new LokAPIExc.HttpError(statusCode, response.reason, "", response)
           }
 
-          let outputJSON
-          try {
-              outputJSON = JSON.parse(rawData)
-          } catch (err) {
-              outputJSON = null
-          }
-          // console.log('HTTP Response status:', statusCode, response.reason)
-          // console.log('== HEADERS:', response.headers)
-          // if (!outputJSON) {
-          //     console.log('== BODY (ascii):', rawData);
-          // } else {
-          //     console.log('== BODY (json):', outputJSON);
-          // }
           return rawData
-      },
+      }
+
+      base64Encode = base64Encode
   }
 
 
-  var lokAPI = new LokAPI(APP_HOST, APP_DB, {
-      httpRequest: nativeHttpRequest,
-      base64encode: base64Encode
-  })
+  var lokAPI = new NativeLokAPI(APP_HOST, APP_DB)
+
 #+end_src
 
 
-*** Login
+* Usage
+
+** Login
 
 You must log in to the server with an existing Odoo Lokavaluto
 account:
@@ -196,7 +192,8 @@ account:
 await lokApi.login("myuser", "mypassword")
 #+end_src
 
-*** Accessing accounts
+
+** Accessing accounts
 
 We assume that you've instanciated =LokAPI= as stated in the previous
 section, and you have logged in.
@@ -206,13 +203,27 @@ let accounts = await lokApi.backends[0].accounts
 console.log(`balance in first account: ${accounts[0].balance} ${accounts[0].symbol}`)
 #+end_src
 
-- =lokAPI.backends= is the list of backends connections that are managed
-by the current account. For now, don't expect more than one element inside.
+- =lokAPI.backends= is the list of backends connections that are
+  managed by the current account. For now, don't expect more than one
+  element inside.
 
-- =backend.accounts= is the list of accounts in that connection (warning, this
-  is a promise).
+- =backend.accounts= is the list of accounts in that connection
+  (warning, this is a promise).
 
 - =account.balance= is the balance of the account
 
 - =account.symbol= is the currency symbol for the account
 
+
+** Direct request to odoo api
+
+
+You can use =lokapi= instance to query directly the odoo api trough
+the =get=, =post=, =put=, =delete= methods and their authenticated
+counterparts, =$get=, =$post=, =$put=, =$delete=.
+
+#+begin_src typescript
+lokAPI.$post(`/partner/${userId}`)
+lokAPI.$post(`/partner/favorite`)
+lokAPI.$post(`/partner/${userId}/toggle_favorite`)
+#+end_src

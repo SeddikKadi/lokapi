@@ -1,55 +1,85 @@
-import * as e from './exception';
+import * as e from "./exception"
 
-import { JsonRESTClient } from '.';
 
-export class OdooREST extends JsonRESTClient {
-    dbName: string;
-    apiToken: string;
+import { JsonRESTClientAbstract } from "."
+
+
+export abstract class OdooRESTAbstract extends JsonRESTClientAbstract {
+
+    API_VERSION = 1
+
+    dbName: string
 
     userData: {
-        login: string;
-        partner_id: number;
-        uid: number;
-    };
-    userProfile: any;
-
-    constructor(host: string, dbName: string, mixin: any) {
-        super(host, mixin);
-        this.dbName = dbName;
+        login: string
+        partner_id: number
+        uid: number
     }
+    userProfile: any
+
+
+    constructor(host: string, dbName: string) {
+        super(host)
+        this.dbName = dbName
+        this.authHeaders = {}
+    }
+
+    _apiToken: string
+
+    set apiToken(apiToken: string) {
+        if (apiToken) {
+            this.authHeaders["API-KEY"] = apiToken
+        } else {
+            delete this.authHeaders["API-KEY"]
+        }
+        this._apiToken = apiToken
+    }
+
+
+    get apiToken(): string {
+        return this._apiToken
+    }
+
 
     async authenticate(login: string, password: string): Promise<any> {
         try {
-            const { response } = await this._req('/lokavaluto_api/public/auth/authenticate', {
-                method: 'POST',
-                headers: {
-                    Authorization: `Basic ${this.base64encode(`${login}:${password}`)}`
-                },
-                data: {
+            let response = await this.post(
+                '/auth/authenticate',
+                {
+                    api_version: this.API_VERSION,
                     db: this.dbName,
                     params: ['lcc_app']
+                },
+                {
+                    Authorization: `Basic ${this.base64Encode(`${login}:${password}`)}`,
                 }
-            });
-            if (response.status === 'Error') {
-                if (response.message === 'access denied') {
-                    throw new e.InvalidCredentials('Access denied');
-                } else throw new e.APIRequestFailed(`Could not obtain token: ${response.error} `);
+            );
+            if (response.status == "Error") {
+                if (response.message == "access denied")
+                    throw new e.InvalidCredentials("Access denied")
+                else
+                    throw new e.APIRequestFailed(`Could not obtain token: ${response.error}`)
             }
-            this.authHeaders = {
-                'API-KEY': response.api_token
-            };
+            if (response.api_version !== this.API_VERSION) {
+                console.log("Warning: API Version Mismatch " +
+                    `between client (${this.API_VERSION}) ` +
+                    `and server (${response.api_version})`)
+            }
+            this.apiToken = response.api_token
             return {
-                login,
+                login: login,
                 partner_id: response.partner_id,
                 uid: response.uid,
-                backends: response.monujo_accounts
-            };
+                backends: response.monujo_backends,
+                api_version: response.api_version
+            }
         } catch (err) {
-            console.log('getToken failed: ', err.message);
-            this.apiToken = undefined;
-            throw err;
+            console.log('getToken failed: ', err.message)
+            this.apiToken = undefined
+            throw err
         }
     }
+
 
     /**
      * Log in to lokavaluto server target API. It actually will probe
@@ -64,26 +94,53 @@ export class OdooREST extends JsonRESTClient {
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      */
     async login(login: string, password: string): Promise<any> {
-        this.userData = await this.authenticate(login, password);
+        this.userData = await this.authenticate(login, password)
         this.userProfile = await this.getUserProfile(this.userData.partner_id);
-        return this.userData;
+        return this.userData
     }
 
-    // apiUrl = {
-    //     getUserProfile: {
-    //         url`/lokavaluto_api/private/partner/${userId}`
 
     /**
-     * get given user's profile
+     * Log out from lokavaluto server
+     *
+     * @returns null
+     *
+     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
+     */
+    async logout(): Promise<void> {
+        this.apiToken = null
+    }
+
+
+    /**
+     * Get given user's profile
      *
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      *
      * @returns Object
      */
     async getUserProfile(userId: number) {
-        const profile = await this._authReq(`/lokavaluto_api/private/partner/${userId}`, {
-            method: 'GET'
-        });
-        return profile || null;
+        const profile = await this.$get(`/partner/${userId}`)
+        return profile || null
     }
+
 }
+
+
+
+let METHODS = "get post put delete"
+
+METHODS.split(" ").forEach(method => {
+    OdooRESTAbstract.prototype[method] = function(
+        path: string, data?: any, headers?: any) {
+        return JsonRESTClientAbstract.prototype[method].apply(this,
+            [`/lokavaluto_api/public${path}`, data, headers])
+    }
+
+    OdooRESTAbstract.prototype["$" + method] = function(
+        path: string, data?: any, headers?: any) {
+        console.log(`Odoo private ${method}:`, path)
+        return JsonRESTClientAbstract.prototype['$' + method].apply(this,
+            [`/lokavaluto_api/private${path}`, data, headers])
+    }
+})
