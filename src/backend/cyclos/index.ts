@@ -17,18 +17,16 @@ export abstract class CyclosBackendAbstract extends JsonRESTClientAbstract {
     }
 
     accounts: CyclosAccount[]
-    getAccounts() {
-        return (async () => {
-            let jsonAccounts = await this.$get(`/${this.owner_id}/accounts`)
+    async getAccounts() {
+        let jsonAccounts = await this.$get(`/${this.owner_id}/accounts`)
 
-            let accounts = []
+        let accounts = []
 
-            jsonAccounts.forEach(jsonAccountData => {
-                accounts.push(new CyclosAccount(this, jsonAccountData))
-            })
-            this.accounts = accounts
-            return accounts
-        })()
+        jsonAccounts.forEach((jsonAccountData: any) => {
+            accounts.push(new CyclosAccount(this, jsonAccountData))
+        })
+    this.accounts = accounts
+        return accounts
     }
 
 }

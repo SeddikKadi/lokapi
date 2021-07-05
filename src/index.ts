@@ -65,6 +65,18 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
     getAccounts() {
         return Promise.all(this.backends.map(b=>b.getAccounts())).then(r=>r.flat())
     }
+
+    /**
+     * Get list of backends
+     *
+     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
+     *
+     * @returns Object
+     */
+    async getBackends(): Promise<any> {
+        return this.backends
+    }
+
 }
 
 
