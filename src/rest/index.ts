@@ -61,6 +61,9 @@ export abstract class JsonRESTClientAbstract {
             console.log(`Failed ${opts.method} request to ${path} (Host: ${this.host})`)
             throw err
         }
+        if (typeof rawData === 'object') {
+            return rawData;
+        }
         let parsedData: any
         try {
             parsedData = JSON.parse(rawData);
