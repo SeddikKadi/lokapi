@@ -109,6 +109,8 @@ export abstract class OdooRESTAbstract extends JsonRESTClientAbstract {
      */
     async logout(): Promise<void> {
         this.apiToken = null
+        this.userData = null
+        this.userProfile = null
     }
 
 
