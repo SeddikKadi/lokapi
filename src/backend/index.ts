@@ -4,14 +4,18 @@
  */
 export class BridgeObject {
     // XXXvlab: TODO: define IBackend
-    backend: any;
+    backend: any
+    parent: any
+    jsonData: any
 
-    jsonData: any;
-
-    constructor(backend, jsonData) {
-        this.backend = backend;
-        this.jsonData = jsonData;
+    constructor(backend, parent, jsonData) {
+        this.backend = backend
+        this.parent = parent
+        this.jsonData = jsonData
     }
 }
+
+
+export var BackendFactories = {}
 
 export const BackendFactories = {};

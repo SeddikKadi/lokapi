@@ -46,6 +46,18 @@ LokAPIAbstract and define these objects:
 
 - httpRequest :: an implementation of =HTTPRequest=
 - base64Encode :: a function to encode a string to base64
+- persistentStore :: an object implementing this interface:
+
+    #+begin_src typescript
+    export interface IPersistentStore {
+        get(key: string, defaultValue?: string): string
+        set(key: string, value: string): void
+        del(key: string): void
+    }
+    #+end_src
+
+- (optional) requestLogin :: a function to trigger a login screen on
+  authorization failed.
 
 ** Instanciating lokapi
 
@@ -67,6 +79,23 @@ Using node's core =https= as HTTP requestion implementation:
 import https from "https"
 
 import { LokAPIAbstract, e as LokAPIExc, t as LokAPIType } from "lokapi"
+
+
+class cookieStore implements LokAPIType.IPersistentStore {
+  constructor() {
+    VueCookieNext.config({ expire: '7d' })
+  }
+  get(key: string, defaultValue?: string): string {
+    return VueCookieNext.getCookie("lokapi_" + key)
+  }
+  set(key: string, value: string): void {
+    VueCookieNext.setCookie("lokapi_" + key, value)
+  }
+  del(key: string): void {
+    VueCookieNext.removeCookie("lokapi_" + key)
+  }
+}
+
 
 class NodeLokAPI extends LokApiAbstract {
 
@@ -111,7 +140,7 @@ class NodeLokAPI extends LokApiAbstract {
     }
 
     base64Encode = (s: string) => Buffer.from(s).toString('base64')
-
+    persistentStore = new cookieStore()
 }
 
 
@@ -141,6 +170,22 @@ Using =@nativescript-community/https= as HTTP request implementation:
   import * as https from '@nativescript-community/https';
 
   import { LokAPIAbstract, e as LokAPIExc, t as LokAPIType } from "lokapi"
+
+
+  import { getString, remove as removeSetting, setString } from '@nativescript/core/application-settings';
+
+
+  class applicationSetting implements LokAPIType.IPersistentStore {
+      get(key: string, defaultValue?: string): string {
+        return getString("lokapi_" + key, defaultValue)
+      }
+      set(key: string, value: string): void {
+        setString("lokapi_" + key, value)
+      }
+      del(key: string): void {
+          removeSetting(key)
+      }
+  }
 
 
   class NativeLokAPI extends LokAPIAbstract {
@@ -173,6 +218,7 @@ Using =@nativescript-community/https= as HTTP request implementation:
       }
 
       base64Encode = base64Encode
+      persistentStore = new applicationSetting()
   }
 
 
@@ -199,18 +245,13 @@ We assume that you've instanciated =LokAPI= as stated in the previous
 section, and you have logged in.
 
 #+begin_src typescript
-let backends = await lokAPI.getBackends()
-let accounts = await backends[0].getAccounts()
+let accounts = await lokAPI.getAccounts()
 
-let balance = await accounts.getBalance()
-let symbol= await accounts.getSymbol()
+let balance = await accounts[0].getBalance()
+let symbol= await accounts[0].getSymbol()
 
 console.log(`balance in first account: ${balance} ${symbol}`)
 #+end_src
-
-- =lokAPI.getBackends()= is the list of backends connections that are
-  managed by the current account. For now, don't expect more than one
-  element inside.
 
 - =backend.getAccounts()= is the list of accounts in that connection
   (warning, this is a promise).
@@ -236,7 +277,7 @@ counterparts, =$get=, =$post=, =$put=, =$delete=.
 // use this endpoint as it is used by the lokAPI.login() and
 // manages token for you.
 lokAPI.post('/auth/authenticate', {
-  api_version: this.API_VERSION,
+  api_version: 2,
   db: 'mydb',
   params: ['lcc_app']
 }, {

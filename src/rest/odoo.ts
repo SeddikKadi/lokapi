@@ -1,18 +1,22 @@
+import * as t from "../type"
 import * as e from "./exception"
 
 
-import { JsonRESTClientAbstract } from "."
+import { JsonRESTPersistentClientAbstract } from "."
 
 
-export abstract class OdooRESTAbstract extends JsonRESTClientAbstract {
+export abstract class OdooRESTAbstract extends JsonRESTPersistentClientAbstract {
 
-    API_VERSION = 1
+    API_VERSION = 2
+
+    AUTH_HEADER = "API-KEY"
+    internalId = "odoo"
 
     dbName: string
 
-    userData: {
+    connectionData: {
+        server_api_version: string
         login: string
-        partner_id: number
         uid: number
     }
     userProfile: any
@@ -23,23 +27,6 @@ export abstract class OdooRESTAbstract extends JsonRESTClientAbstract {
         this.dbName = dbName
         this.authHeaders = {}
     }
-
-    _apiToken: string
-
-    set apiToken(apiToken: string) {
-        if (apiToken) {
-            this.authHeaders["API-KEY"] = apiToken
-        } else {
-            delete this.authHeaders["API-KEY"]
-        }
-        this._apiToken = apiToken
-    }
-
-
-    get apiToken(): string {
-        return this._apiToken
-    }
-
 
     async authenticate(login: string, password: string): Promise<any> {
         try {
@@ -66,20 +53,57 @@ export abstract class OdooRESTAbstract extends JsonRESTClientAbstract {
                     `and server (${response.api_version})`)
             }
             this.apiToken = response.api_token
-            return {
-                login: login,
-                partner_id: response.partner_id,
-                uid: response.uid,
-                backends: response.monujo_backends,
-                api_version: response.api_version
-            }
+            return response
         } catch (err) {
-            console.log('getToken failed: ', err.message)
+            console.log('authenticate failed: ', err.message)
             this.apiToken = undefined
             throw err
         }
     }
 
+    private getHTMLErrorMessage(htmlString: string): string {
+        let parser = new DOMParser()
+        let htmlDoc: any
+        let errMessage: any
+        try {
+            htmlDoc = parser.parseFromString(htmlString, 'text/html')
+        } catch (err) {
+            console.log('Unexpected HTML parsing error:', err)
+            throw err
+        }
+
+        try {
+            errMessage = htmlDoc.head.getElementsByTagName('title')[0].innerHTML
+        } catch (err) {
+            console.log('Unexpected HTML structure:', err)
+            throw err
+        }
+
+        return errMessage
+    }
+
+    public async request(path: string, opts: t.HttpOpts): Promise<any> {
+        let response: any
+        try {
+            response = await super.request(path, opts)
+        } catch (err) {
+            if (err instanceof e.HttpError && err.code == 500) {
+                let errMessage: string
+                try {
+                    errMessage = this.getHTMLErrorMessage(err.data)
+                } catch (err2) {
+                    console.log('Could not get error message in HTML from request body', err2)
+                    throw err
+                }
+                if (errMessage.startsWith("odoo.exceptions.AccessDenied")) {
+                    console.log('Authentication Required')
+                    throw new e.AuthenticationRequired("Authentication Failed")
+                }
+            }
+            throw err
+        }
+        return response
+    }
 
     /**
      * Log in to lokavaluto server target API. It actually will probe
@@ -94,12 +118,17 @@ export abstract class OdooRESTAbstract extends JsonRESTClientAbstract {
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      */
     async login(login: string, password: string): Promise<any> {
-        this.userData = await this.authenticate(login, password)
-        this.userProfile = await this.getUserProfile(this.userData.partner_id);
-        return this.userData
+        let authData = await this.authenticate(login, password)
+        this.connectionData = {
+            server_api_version: authData.api_version,
+            login: login,
+            uid: authData.uid,
+        }
+        this.userProfile = authData.prefetch.partner
+        return authData
     }
-
-
+    
+    
     /**
      * Log out from lokavaluto server
      *
@@ -135,13 +164,13 @@ let METHODS = "get post put delete"
 METHODS.split(" ").forEach(method => {
     OdooRESTAbstract.prototype[method] = function(
         path: string, data?: any, headers?: any) {
-        return JsonRESTClientAbstract.prototype[method].apply(this,
+        return JsonRESTPersistentClientAbstract.prototype[method].apply(this,
             [`/lokavaluto_api/public${path}`, data, headers])
     }
 
     OdooRESTAbstract.prototype["$" + method] = function(
         path: string, data?: any, headers?: any) {
-        return JsonRESTClientAbstract.prototype['$' + method].apply(this,
+        return JsonRESTPersistentClientAbstract.prototype['$' + method].apply(this,
             [`/lokavaluto_api/private${path}`, data, headers])
     }
 })

@@ -1,19 +1,88 @@
 
-import { JsonRESTClientAbstract } from "../../rest"
+import { JsonRESTPersistentClientAbstract } from "../../rest"
+import * as t from "../../type"
 
 import { CyclosAccount } from "./account"
 
 import { BackendFactories } from ".."
 
 
-export abstract class CyclosBackendAbstract extends JsonRESTClientAbstract {
+
+export abstract class CyclosBackendAbstract {
+
+    protected abstract httpRequest: t.HttpRequest
+    protected abstract base64Encode: t.Base64Encode
+    protected abstract persistentStore: t.IPersistentStore
+    protected abstract requestLogin(): void
+
+
+    constructor(jsonData: any) {
+        this._jsonData = jsonData  // lazy loading
+    }
+    private _jsonData
+
+
+    private get userAccounts() {
+        if (!this._userAccounts) {
+            this._userAccounts = {}
+            let { httpRequest, base64Encode, persistentStore, requestLogin } = this
+            this._jsonData.user_accounts.forEach((userAccountData: any) => {
+                class CyclosUserAccount extends CyclosUserAccountAbstract {
+                    httpRequest = httpRequest
+                    base64Encode = base64Encode
+                    persistentStore = persistentStore
+                    requestLogin = requestLogin
+
+                    // This function declaration seems necessary for typescript
+                    // to avoid having issues with this dynamic abstract class
+                    constructor(jsonData: any) {
+                        super(jsonData)
+                    }
+
+                }
+                let cyclosUserAccount = new CyclosUserAccount(userAccountData)
+                this._userAccounts[cyclosUserAccount.internalId] = cyclosUserAccount
+            })
+        }
+        return this._userAccounts
+    }
+    private _userAccounts: any
+
+
+    public async getAccounts(): Promise<any> {
+        let backendBankAccounts = []
+        for (const id in this.userAccounts) {
+            let userAccount = this.userAccounts[id]
+            let bankAccounts = await userAccount.getAccounts()
+            bankAccounts.forEach((bankAccount: any) => {
+                backendBankAccounts.push(bankAccount)
+            })
+        }
+        return backendBankAccounts
+    }
+
+    get internalId() {
+        let endingPart = this._jsonData.user_accounts[0].url.split("://")[1];
+        let splits = endingPart.split("/");
+        let host = splits[0]
+        return `cyclos:${host}`
+    }
+
+}
+
+
+
+export abstract class CyclosUserAccountAbstract extends JsonRESTPersistentClientAbstract {
+
+    AUTH_HEADER = "Session-token"
 
     owner_id: string
 
-    constructor(accountData) {
-        super(accountData.server_url)
-        this.authHeaders = { "Session-token": accountData.token }
-        this.owner_id = accountData.owner_id
+
+    constructor(jsonData) {
+        super(jsonData.url)
+        this.lazySetApiToken(jsonData.token)
+        this.owner_id = jsonData.owner_id
     }
 
     accounts: CyclosAccount[]
@@ -23,10 +92,14 @@ export abstract class CyclosBackendAbstract extends JsonRESTClientAbstract {
         let accounts = []
 
         jsonAccounts.forEach((jsonAccountData: any) => {
-            accounts.push(new CyclosAccount(this, jsonAccountData))
+            accounts.push(new CyclosAccount(this, this, jsonAccountData))
         })
     this.accounts = accounts
         return accounts
+    }
+
+    get internalId() {
+        return `cyclos:${this.owner_id}@${this.host}`
     }
 
 }
