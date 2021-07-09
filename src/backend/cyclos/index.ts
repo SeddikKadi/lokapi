@@ -49,6 +49,17 @@ export abstract class CyclosBackendAbstract {
     private _userAccounts: any
 
 
+    get accounts() {
+        let backendBankAccounts = []
+        for (const id in this.userAccounts) {
+            let userAccount = this.userAccounts[id]
+            let bankAccounts =  userAccount.accounts
+            bankAccounts.forEach((bankAccount: any) => {
+                backendBankAccounts.push(bankAccount)
+            })
+        }
+        return backendBankAccounts
+    }
     public async getAccounts(): Promise<any> {
         let backendBankAccounts = []
         for (const id in this.userAccounts) {
@@ -94,7 +105,7 @@ export abstract class CyclosUserAccountAbstract extends JsonRESTPersistentClient
         jsonAccounts.forEach((jsonAccountData: any) => {
             accounts.push(new CyclosAccount(this, this, jsonAccountData))
         })
-    this.accounts = accounts
+        this.accounts = accounts
         return accounts
     }
 

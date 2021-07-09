@@ -31,15 +31,6 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
         this._backends = false // force prefetch
         return true
     }
-
-    get accounts() {
-        return this.backends.map(b=>b.accounts).then(r=>r.flat())
-
-    }
-    getAccounts() {
-        return Promise.all(this.backends.map(b=>b.getAccounts())).then(r=>r.flat())
-    }
-
     /**
      * Get backend credentials
      *
@@ -122,7 +113,7 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
         for (const id in backends) {
             let backend = backends[id]
             // XXXvlab: should go for parallel waits
-            let bankAccounts = await backend.getAccounts()
+            let bankAccounts = await backend.getAccounts() || []
             bankAccounts.forEach((bankAccount: any) => {
                 lokapiBankAccounts.push(bankAccount)
             })
@@ -130,6 +121,22 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
         return lokapiBankAccounts
     }
 
+    get accounts() {
+        let backends = this._backends
+        if (!backends) {
+            return [];
+        }
+        let lokapiBankAccounts = []
+        for (const id in backends) {
+            let backend = backends[id]
+            let bankAccounts = backend.accounts || []
+            bankAccounts.forEach((bankAccount: any) => {
+                lokapiBankAccounts.push(bankAccount)
+            })
+        }
+        return lokapiBankAccounts
+
+    }
 }
 
 
