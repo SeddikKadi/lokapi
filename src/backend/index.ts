@@ -16,6 +16,4 @@ export class BridgeObject {
 }
 
 
-export var BackendFactories = {}
-
 export const BackendFactories = {};
