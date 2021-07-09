@@ -158,15 +158,24 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
             // "limit": 40,
         })
         let recipients = []
-        partners.rows.forEach((partnerData: any) => {
+        for (let index = 0; index < partners.rows.length; index++) {
+            recipients.push(...(await this.makeRecipient(partners.rows[index])))
+        }
+        return recipients
+    }
+
+    public async makeRecipient(partnerData): Promise<Array<t.IRecipient>> {
+        if (partnerData) {
+            let recipients = []
+            let backends = await this.getBackends()
             Object.keys(partnerData.monujo_backends).forEach((backendId: string) => {
                 let backendRecipients = backends[backendId].makeRecipients(partnerData)
                 backendRecipients.forEach((recipient: any) => {
                     recipients.push(recipient)
                 })
             })
-        })
-        return recipients
+            return recipients;
+        }
     }
 
 
