@@ -30,6 +30,17 @@ export interface IPersistentStore {
 
 
 export interface IRecipient {
+    id: number
+    name: string
+    street: string
+    street2: string
+    zip: string
+    city: string
+    mobile: string
+    email: string
+    phone: string
+    is_favorite: boolean
+    is_company: boolean
     backend: any
     parent: any
 }
