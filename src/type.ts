@@ -17,7 +17,7 @@ export type restMethod = (path: string, data?: any, headers?: any) => any
 
 
 export type HttpOpts = {
-    method: string
+    method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD"
     headers?: {}
     data?: {}
 }
