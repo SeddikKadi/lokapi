@@ -13,7 +13,7 @@ export abstract class CyclosBackendAbstract {
     protected abstract httpRequest: t.HttpRequest
     protected abstract base64Encode: t.Base64Encode
     protected abstract persistentStore: t.IPersistentStore
-    protected abstract requestLogin(): void
+    protected requestLogin?: () => void
 
 
     constructor(jsonData: any) {

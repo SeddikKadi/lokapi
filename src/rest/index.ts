@@ -132,7 +132,7 @@ METHODS.split(" ").forEach(method => {
     JsonRESTClientAbstract.prototype[method] = async function(
         path: string, data?: any, headers?: any) {
         let opts: t.HttpOpts = {
-            method: method.toUpperCase(),
+            method: method.toUpperCase() as any,
             headers: headers || {},
             data: data || {},
         }
@@ -142,7 +142,7 @@ METHODS.split(" ").forEach(method => {
     JsonRESTClientAbstract.prototype["$" + method] = async function(
         path: string, data?: any, headers?: any) {
         let opts: t.HttpOpts = {
-            method: method.toUpperCase(),
+            method: method.toUpperCase() as any,
             headers: headers || {},
             data: data || {},
         }
@@ -202,7 +202,7 @@ export abstract class JsonRESTPersistentClientAbstract extends JsonRESTSessionCl
 
     protected abstract internalId: string
     protected abstract persistentStore: t.IPersistentStore
-    protected abstract requestLogin(): void
+    protected requestLogin?: () => void
 
 
     /**
