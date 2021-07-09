@@ -2,7 +2,10 @@
 import { JsonRESTPersistentClientAbstract } from "../../rest"
 import * as t from "../../type"
 
+import { CyclosPayment } from "./payment"
 import { CyclosAccount } from "./account"
+import { CyclosRecipient } from "./recipient"
+import { CyclosTransaction } from "./transaction"
 
 import { BackendFactories } from ".."
 
@@ -72,6 +75,16 @@ export abstract class CyclosBackendAbstract {
         return backendBankAccounts
     }
 
+
+    public makeRecipients(jsonData: any): any {
+        let recipients = []
+        jsonData.monujo_backends[this.internalId].forEach((ownerId: string) => {
+            recipients.push(new CyclosRecipient(this, this, jsonData, ownerId))
+        })
+        return recipients
+    }
+
+
     get internalId() {
         let endingPart = this._jsonData.user_accounts[0].url.split("://")[1];
         let splits = endingPart.split("/");
@@ -79,8 +92,21 @@ export abstract class CyclosBackendAbstract {
         return `cyclos:${host}`
     }
 
-}
 
+    public async getTransactions(): Promise<any> {
+        let backendTransactions = []
+        for (const id in this.userAccounts) {
+            let userAccount = this.userAccounts[id]
+            // XXXvlab: these promises should be awaited in parallel
+            let transactions = await userAccount.getTransactions()
+            transactions.forEach((transaction: any) => {
+                backendTransactions.push(transaction)
+            })
+        }
+        return backendTransactions
+    }
+
+}
 
 
 export abstract class CyclosUserAccountAbstract extends JsonRESTPersistentClientAbstract {
@@ -112,6 +138,39 @@ export abstract class CyclosUserAccountAbstract extends JsonRESTPersistentClient
     get internalId() {
         return `cyclos:${this.owner_id}@${this.host}`
     }
+
+    public async transfer(recipient: CyclosRecipient, amount: number, description: string) {
+        const jsonDataPerform = await this.$get(
+            `/self/payments/data-for-perform`,
+            { to: recipient.ownerId })
+        if (jsonDataPerform.paymentTypes.length == 0) {
+            throw new Error('No payment types available between selected accounts')
+        }
+        if (jsonDataPerform.paymentTypes.length > 1) {
+            throw new Error(
+                'More than one payment types available between ' +
+                'selected accounts. Not supported yet !')
+        }
+        const jsonData = await this.$post(`/self/payments`, {
+            amount: amount,
+            description: description,
+            subject: recipient.ownerId,
+        })
+        return new CyclosPayment(this, this, jsonData)
+    }
+
+
+    public async getTransactions(): Promise<any> {
+        let jsonTransactions = await this.$get(`/${this.owner_id}/transactions`)
+
+        let transactions = []
+
+        jsonTransactions.forEach((jsonTransactionData: any) => {
+            transactions.push(new CyclosTransaction(this, this, jsonTransactionData))
+        })
+        return transactions
+    }
+
 
 }
 

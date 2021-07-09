@@ -29,4 +29,20 @@ export interface IPersistentStore {
 }
 
 
+export interface IRecipient {
+    backend: any
+    parent: any
+}
+
+
+export interface IPayment {
+    backend: any
+}
+
+
+export interface ITransaction {
+    backend: any
+}
+
+
 export type Base64Encode = (s: string) => string

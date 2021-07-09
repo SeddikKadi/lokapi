@@ -137,6 +137,84 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
         return lokapiBankAccounts
 
     }
+    
+    /**
+     * Get list of Partners
+     *
+     * @param value The given string will be searched in name, email, phone
+     *
+     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
+     *
+     * @returns Array<t.IRecipient>
+     */
+    public async searchRecipient(value: string): Promise<Array<t.IRecipient>> {
+        // XXXvlab: to cache with global cache decorator that allow fine control
+        // of forceRefresh
+        let backends = await this.getBackends()
+        let partners = await this.$post('/partner/partner_search', {
+            "value": value,
+            "backend_keys": Object.keys(backends),
+            // "offset": 0,
+            // "limit": 40,
+        })
+        let recipients = []
+        partners.rows.forEach((partnerData: any) => {
+            Object.keys(partnerData.monujo_backends).forEach((backendId: string) => {
+                let backendRecipients = backends[backendId].makeRecipients(partnerData)
+                backendRecipients.forEach((recipient: any) => {
+                    recipients.push(recipient)
+                })
+            })
+        })
+        return recipients
+    }
+
+
+    /**
+     * Transfer amount between 2 accounts. First account is supposed
+     * to be logged in and linked to an authentified backend. Second
+     * account should belong to same backend.
+     *
+     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
+     *
+     * @returns Object
+     */
+    public async transfer(fromAccount: any,
+        recipient: t.IRecipient,
+        amount: number,
+        description: string): Promise<t.IPayment> {
+        // XXXvlab: this check is not working yet and need to be more
+        // thought through
+        // if (fromAccount.backend.internalId !== recipient.backend.internalId) {
+        //     throw new Error("Transfer across backends is not supported.")
+        // }
+        return await fromAccount.transfer(recipient, amount, description)
+    }
+
+
+    /**
+     * Transfer amount between 2 accounts. First account is supposed
+     * to be logged in and linked to an authentified backend. Second
+     * account should belong to same backend.
+     *
+     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
+     *
+     * @returns Object
+     */
+    public async getTransactions(): Promise<any> {
+        let backends = await this.getBackends()
+        let lokapiTransactions = []
+        for (const id in backends) {
+            let backend = backends[id]
+            // XXXvlab: should go for parallel waits
+            let transactions = await backend.getTransactions()
+            transactions.forEach((transaction: any) => {
+                lokapiTransactions.push(transaction)
+            })
+        }
+        return lokapiTransactions
+    }
+
 }
 
 
