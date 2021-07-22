@@ -113,7 +113,7 @@ export abstract class OdooRESTAbstract extends JsonRESTPersistentClientAbstract 
      *                         (ie: john.doe@company.com)
      * @param {string} password - Password of given user identifier
      *
-     * @returns null
+     * @returns {Object} autData
      *
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      */
@@ -143,15 +143,36 @@ export abstract class OdooRESTAbstract extends JsonRESTPersistentClientAbstract 
 
 
     /**
-     * Get given user's profile
+     * Get given userId's profile. If no id is specified, returns the
+     * current logged in user's info.
      *
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      *
+     * @param userId The integer of the target partner's id in
+     *               odoo. If not specified it'll take the value 0,
+     *               which has a special meaning of 'me', the current
+     *               logged in user.
+     *
+     * @returns {Object
+     */
+    async getUserProfile(user: number | t.IPartner = 0): Promise<t.IPartner> {
+        const uid: number = typeof user === "number" ? user : user.id
+        const partner: t.IPartner = await this.$get(`/partner/${uid}`)
+        return partner || null
+    }
+
+
+    /**
+     * Toggle favorite status of given IPartner object
+     *
+     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
+     *
+     * @param partner The partner to toggle favorite status
+     *
      * @returns Object
      */
-    async getUserProfile(userId: number) {
-        const profile = await this.$get(`/partner/${userId}`)
-        return profile || null
+    public async toggleFavorite(user: t.IPartner): Promise<t.IPartner> {
+        return this.$post(`/partner/${user.id}/toggle_favorite`)
     }
 
 }

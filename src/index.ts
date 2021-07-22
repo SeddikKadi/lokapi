@@ -139,7 +139,8 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
     }
     
     /**
-     * Get list of Partners
+     * Get list of Recipients (partners that can receive money from
+     * me) matching given string filter.
      *
      * @param value The given string will be searched in name, email, phone
      *
@@ -184,6 +185,11 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
      * to be logged in and linked to an authentified backend. Second
      * account should belong to same backend.
      *
+     * @param fromAccount Source account for transfer, from ``.getAccounts()``
+     * @param recipient Recipient for the transfer, from ``.searchRecipient(..)``
+     * @param amount Amount of the transfer (ie: "100.02")
+     * @param description Text to decribe the transaction
+     *
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      *
      * @returns Object
@@ -202,17 +208,15 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
 
 
     /**
-     * Transfer amount between 2 accounts. First account is supposed
-     * to be logged in and linked to an authentified backend. Second
-     * account should belong to same backend.
+     * Get history of transactions on all backends.
      *
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      *
      * @returns Object
      */
     public async getTransactions(): Promise<any> {
-        let backends = await this.getBackends()
-        let lokapiTransactions = []
+        const backends = await this.getBackends()
+        const lokapiTransactions = []
         for (const id in backends) {
             let backend = backends[id]
             // XXXvlab: should go for parallel waits

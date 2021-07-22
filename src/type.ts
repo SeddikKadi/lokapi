@@ -29,18 +29,7 @@ export interface IPersistentStore {
 }
 
 
-export interface IRecipient {
-    id: number
-    name: string
-    street: string
-    street2: string
-    zip: string
-    city: string
-    mobile: string
-    email: string
-    phone: string
-    is_favorite: boolean
-    is_company: boolean
+export interface IRecipient extends IPartner {
     backend: any
     parent: any
 }
@@ -53,6 +42,24 @@ export interface IPayment {
 
 export interface ITransaction {
     backend: any
+}
+
+
+/**
+ * Simple output from odoo database
+ *
+ */
+export interface IPartner {
+    id: number
+    name: string
+    email: string
+    is_favorite: boolean
+    is_company: boolean
+    mobile: string
+    phone: string
+    street: string
+    street2: string
+    zip: string
 }
 
 
