@@ -6,6 +6,7 @@ export type coreHttpOpts = {
     path: string
     method: "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD"
     headers?: {}
+    port?: number
     data?: {}
 }
 
