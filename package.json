@@ -1,6 +1,6 @@
 {
     "name": "lokapi",
-    "version": "0.0.12",
+    "version": "%%version%%",
     "description": "Lokavaluto API",
     "main": "build/index.js",
     "types": "build/index.d.ts",
@@ -10,10 +10,17 @@
     },
     "author": "Valentin LAB",
     "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git@github.com:Lokavaluto/lokapi.git"
+    },
     "devDependencies": {
         "@types/node": "^15.12.2",
         "tslint": "^6.1.3",
         "typedoc": "^0.21.0",
         "typescript": "^4.3.2"
+    },
+    "dependencies": {
+        "query-string": "^7.0.1"
     }
 }

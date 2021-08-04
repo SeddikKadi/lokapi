@@ -1,5 +1,6 @@
 import * as e from "./exception"
 import * as t from "../type"
+import { stringify as toQueryString } from "query-string"
 
 
 export abstract class JsonRESTClientAbstract {
@@ -80,7 +81,7 @@ export abstract class JsonRESTClientAbstract {
         let rawData: any
         let qs = ""
         if (opts.method === "GET" && Object.keys(opts.data).length != 0) {
-            qs = (new URLSearchParams(opts.data)).toString()
+            qs = toQueryString(opts.data, { arrayFormat: 'index' })
         }
         try {
             rawData = await this.httpRequest({
@@ -138,23 +139,21 @@ export abstract class JsonRESTClientAbstract {
 }
 
 
-let METHODS = "get post put delete"
-
-METHODS.split(" ").forEach(method => {
-    JsonRESTClientAbstract.prototype[method] = async function(
+t.httpMethods.forEach(method => {
+    JsonRESTClientAbstract.prototype[method.toLowerCase()] = async function(
         path: string, data?: any, headers?: any) {
         let opts: t.HttpOpts = {
-            method: method.toUpperCase() as any,
+            method: method,
             headers: headers || {},
             data: data || {},
         }
         return this.request(path, opts)
     }
 
-    JsonRESTClientAbstract.prototype["$" + method] = async function(
+    JsonRESTClientAbstract.prototype["$" + method.toLowerCase()] = async function(
         path: string, data?: any, headers?: any) {
         let opts: t.HttpOpts = {
-            method: method.toUpperCase() as any,
+            method: method,
             headers: headers || {},
             data: data || {},
         }
@@ -251,12 +250,14 @@ export abstract class JsonRESTPersistentClientAbstract extends JsonRESTSessionCl
         super.requireAuth()
     }
 
-
     public async authRequest(path: string, opts: t.HttpOpts): Promise<any> {
         try {
             return await super.authRequest(path, opts)
         } catch (err) {
-            if (err instanceof e.AuthenticationRequired) {
+            // XXXvlab: err instanceof e.AuthenticationRequired is giving false
+            // despite it seeming to be perfectly valid.
+            //if (err instanceof e.AuthenticationRequired) {
+            if (err.constructor.name === "AuthenticationRequired") {
                 this.apiToken = null
                 if (!!this.requestLogin) {
                     this.requestLogin()

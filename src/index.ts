@@ -1,5 +1,5 @@
 
-import { OdooRESTAbstract } from "./rest/odoo"
+import { OdooRESTAbstract } from "./backend/odoo"
 
 import * as e from "./rest/exception"
 import * as t from "./type"
@@ -69,7 +69,7 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
 
     private makeBackends(backend_credentials: any): any {
         let backends = {}
-        let { httpRequest, base64Encode, persistentStore } = this
+        let { httpRequest, base64Encode, persistentStore, requestLogin } = this
         backend_credentials.forEach((backendData: any) => {
             let BackendClassAbstract = BackendFactories[backendData.type]
             if (!BackendClassAbstract) {
@@ -80,6 +80,7 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
                 httpRequest = httpRequest
                 base64Encode = base64Encode
                 persistentStore = persistentStore
+                requestLogin = requestLogin
 
                 // This function declaration seems necessary for typescript
                 // to avoid having issues with this dynamic abstract class
@@ -87,7 +88,7 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
             }
             let backend: any
             try {
-                backend = new Backend(backendData)
+                backend = new Backend({ odoo: this }, backendData)
             } catch (err) {
                 console.log(`Backend ${backendData.type} creation failed:`, err)
                 return
@@ -148,11 +149,12 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
      *
      * @returns Array<t.IRecipient>
      */
-    public async searchRecipient(value: string): Promise<Array<t.IRecipient>> {
+    public async searchRecipients(value: string): Promise<t.IRecipient[]> {
         // XXXvlab: to cache with global cache decorator that allow fine control
         // of forceRefresh
+
         let backends = await this.getBackends()
-        let partners = await this.$post('/partner/partner_search', {
+        let partners = await this.$get('/partner/partner_search', {
             "value": value,
             "backend_keys": Object.keys(backends),
             // "offset": 0,
@@ -181,34 +183,41 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
 
 
     /**
-     * Transfer amount between 2 accounts. First account is supposed
-     * to be logged in and linked to an authentified backend. Second
-     * account should belong to same backend.
-     *
-     * @param fromAccount Source account for transfer, from ``.getAccounts()``
-     * @param recipient Recipient for the transfer, from ``.searchRecipient(..)``
-     * @param amount Amount of the transfer (ie: "100.02")
-     * @param description Text to decribe the transaction
+     * Get recipients from a QR code url string. It'll return a recipient per
+     * backend.
      *
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      *
-     * @returns Object
+     * @param url The QR code url identifying a user
+     *
+     * @returns {Object
      */
-    public async transfer(fromAccount: any,
-        recipient: t.IRecipient,
-        amount: number,
-        description: string): Promise<t.IPayment> {
-        // XXXvlab: this check is not working yet and need to be more
-        // thought through
-        // if (fromAccount.backend.internalId !== recipient.backend.internalId) {
-        //     throw new Error("Transfer across backends is not supported.")
-        // }
-        return await fromAccount.transfer(recipient, amount, description)
+    public async getRecipientsFromUrl(url: string): Promise<t.IRecipient[]> {
+        let backends = await this.getBackends()
+        let partner
+        try {
+            partner = await this.$get('/partner/get_by_url', {
+                url,
+                backend_keys: Object.keys(backends),
+            })
+        } catch (err) {
+            if (err instanceof e.HttpError && err.code === 404) {
+                return []
+            }
+        }
+        let recipients = []
+        Object.keys(partner.monujo_backends).forEach((backendId: string) => {
+            let backendRecipients = backends[backendId].makeRecipients(partner)
+            backendRecipients.forEach((recipient: any) => {
+                recipients.push(recipient)
+            })
+        })
+        return recipients
     }
 
 
     /**
-     * Get history of transactions on all backends.
+     * Get history of transactions on all backends for currently logged in user.
      *
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      *

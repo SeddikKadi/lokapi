@@ -260,6 +260,20 @@ console.log(`balance in first account: ${balance} ${symbol}`)
 
 - =account.getSymbol()= is the currency symbol for the account
 
+** Crediting account
+
+You can credit your account thanks to =account.getCreditUrl(amount)=.
+This will return an url to finish the purchase of new credits.
+
+#+begin_src typescript
+let accounts = await lokAPI.getAccounts()
+
+url = await accounts[0].getCreditUrl(100)
+
+console.log(`I need to follow instructions on $url ` +
+            'to purchase credit to store in my account.')
+#+end_src
+
 ** Looking for recipients
 
 Recipient are possible receiving end of a transfer of
@@ -273,41 +287,43 @@ recipients.forEach(recipient => {
 })
 #+end_src
 
+You can also grab recipients by url. This url is the identity
+url created by odoo. It'll return a list of recipients, one
+for each backend you can use to send money.
+
+#+begin_src typescript
+let url = "https://myhost.com/fr_FR/partners/foo-bar-13"
+let recipients = await lokAPI.getRecipientsFromUrl(url)
+
+recipients.forEach(recipient => {
+    console.log(`name: ${recipient.name}`)
+})
+#+end_src
+
+
 ** Transfer money between an account to a recipient
 
 Transfering money is done from an account of the logged-in user
 to a recipient:
 
 #+begin_src typescript
-// Get my accounts
-let accounts = await lokAPI.getAccounts()
 
 // Fetch recipients named 'Alain'
 let recipients = await lokAPI.searchRecipients("Alain")
 
-await lokAPI.transfer(accounts[0], recipients[0], "12", "Dinner Party participation")
-// or:
-await accounts[0].transfer(recipients[0], "13", "Coffee")
-
+await recipients.transfer("12", "Dinner Party participation")
 #+end_src
 
-** Requesting info on given partner
+** Requesting contact info on current logged in user
 
-The method =lokAPI.getUserInfo(userId?: number)= allows you to get
-back user info given it's user id. If you don't provide this user id,
-you'll get your own information. This is useful especially if you
-don't know yet your own =userId=:
+The method =lokAPI.getMyContact()= allows you to get back
+your own information.:
 
 #+begin_src typescript
 
-let partnerId = 9
-
-let userInfo = await lokAPI.getUserInfo(partnerId)
-console.log(`Partner 9 name: ${userInfo.name}`)
-
 // My own information
-let myOwnInfo = await lokAPI.getUserInfo()
-console.log(`My user id: ${myOwnInfo.id}`)
+let me = await lokAPI.getContact()
+console.log(`My user name: ${me.name}`)
 
 #+end_src
 
@@ -315,16 +331,22 @@ console.log(`My user id: ${myOwnInfo.id}`)
 
 You can set or unset the "favorite" state of a given contact with the
 =lokAPI.setFavorite(..)=, =lokAPI.unsetFavorite(..)=, or
-=lokAPI.toggleFavorite(..)= method. The argument can be a recipient
-(from =.searchRecipients()=) or a contact (from =.getUserInfo()=).
+=lokAPI.toggleFavorite(..)= method. This can be used on a recipient
+(from =.searchRecipients()=) or a contact (but for now, only
+=.getMyContact()= is outputting a contact, and it doesn't make 
+sense to be your own favorite, does it ?).
 
-It'll return a new contact with the updated information.
+It'll not return any value, but the contact will be updated
+accordingly.
 
 #+begin_src typescript
 let recipients = await lokAPI.searchRecipients("Alain")
 
-await lokAPI.setFavorite(recipients[2])
-await lokAPI.unsetFavorite(recipients[3])
+await recipients[2].setFavorite()
+await recipients[3].unsetFavorite()
+
+console.log(recipients[3].is_favorite) // is expected to be unset
+
 #+end_src
 
 
@@ -343,7 +365,6 @@ transactions.forEach((tr:any) => {
 
 ** Direct request to odoo api
 
-
 You can use =lokapi= instance to query directly the odoo api trough
 the =get=, =post=, =put=, =delete= methods and their authenticated
 counterparts, =$get=, =$post=, =$put=, =$delete=.
@@ -351,7 +372,7 @@ counterparts, =$get=, =$post=, =$put=, =$delete=.
 #+begin_src typescript
 
 // All 8 methods have this signature:
-// type restMethod = (path: string, data?: any, headers?: any) => any
+// type restMethod = (path: string, data?: JsonData, headers?: { [label: string]: string }): Promise<JsonData>
 
 // Notice that the next call is an example, but you don't need to
 // use this endpoint as it is used by the lokAPI.login() and
@@ -365,6 +386,13 @@ lokAPI.post('/auth/authenticate', {
 })
 
 lokAPI.$post(`/partner/${userId}`)
-lokAPI.$post(`/partner/favorite`)
-lokAPI.$post(`/partner/${userId}/toggle_favorite`)
+lokAPI.$put(`/partner/${userId}/favorite/set`)
+lokAPI.$get(`/partner/partner_search`, {
+  value: "foo"
+})
 #+end_src
+
+Please note that ``.get(..)`` and ``.$get(..)`` have same prototype
+and usage than other function and do not require you to build a query
+string as it'll encode in the URL as a querystring the data you've
+provided.
