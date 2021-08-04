@@ -155,8 +155,8 @@ export abstract class OdooRESTAbstract extends JsonRESTPersistentClientAbstract 
      *
      * @returns {Object
      */
-    public async getMyContact(): Promise<t.IContact> {
-        return new Contact({ odoo: this }, this, { odoo: await this.$get(`/partner/0`) })
+    public async getMyContact(id = 0): Promise<t.IContact> {
+        return new Contact({ odoo: this }, this, { odoo: await this.$get(`/partner/${id}`) })
     }
 
 }

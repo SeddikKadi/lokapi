@@ -82,6 +82,7 @@ export abstract class JsonRESTClientAbstract {
         let qs = ""
         if (opts.method === "GET" && Object.keys(opts.data).length != 0) {
             qs = toQueryString(opts.data, { arrayFormat: 'index' })
+            console.log('request toQueryString', opts.data, qs);
         }
         try {
             rawData = await this.httpRequest({
