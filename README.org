@@ -1,19 +1,10 @@
 # -*- ispell-local-dictionary: "english" -*-
-#+SETUPFILE: ~/.emacs.d/etc/setup/default.setup
-#+SETUPFILE: ~/.emacs.d/etc/setup/latex.setup
-#+SETUPFILE: ~/.emacs.d/etc/setup/html-readtheorg-local.setup
 
 #+TITLE: Lokavaluto's LokAPI
-#+LATEX: \pagebreak
 
 LokAPI is a javascript library intended to be used in mobile
 applications or web application to abstract all logics with
 lokavaluto's server.
-
-#+LATEX: \pagebreak
-#+LATEX: \pagebreak
-
-
 
 
 * Adding =lokapi= to your project
@@ -276,8 +267,13 @@ console.log(`I need to follow instructions on $url ` +
 
 ** Looking for recipients
 
-Recipient are possible receiving end of a transfer of
-money. These are connected to identities in ``lokapi``.
+Recipients are possible receiving end of a transfer of
+money. These are connected to contacts in ``lokapi``.
+
+We have Pro Recipients which are used for company. And normal
+Recipient, any contact non-professional contact. We make 
+separate search through ``lokAPI.searchRecipients(..)`` or
+``lokAPI.searchProRecipients(..)``.
 
 #+begin_src typescript
 let recipients = await lokAPI.searchRecipients("Alain")
@@ -286,6 +282,11 @@ recipients.forEach(recipient => {
     console.log(`name: ${recipient.name}`)
 })
 #+end_src
+
+Note that if you look for an empty string,
+``lokAPI.search{,Pro}Recipients("")`` will return all favorite recipients.
+
+Recipients are always ordered with favorites first and by name.
 
 You can also grab recipients by url. This url is the identity
 url created by odoo. It'll return a list of recipients, one
@@ -382,7 +383,7 @@ lokAPI.post('/auth/authenticate', {
   db: 'mydb',
   params: ['lcc_app']
 }, {
-  'Authorization': '',
+  'Authorization': 'XYZ',
 })
 
 lokAPI.$post(`/partner/${userId}`)

@@ -1,14 +1,14 @@
 
-import { JsonRESTPersistentClientAbstract } from "../../rest"
+import { JsonRESTPersistentClientAbstract } from '../../rest'
 
-import * as e from "../../exception"
-import * as t from "../../type"
+import * as e from '../../exception'
+import * as t from '../../type'
 
-import { CyclosAccount } from "./account"
-import { CyclosRecipient } from "./recipient"
-import { CyclosTransaction } from "./transaction"
+import { CyclosAccount } from './account'
+import { CyclosRecipient } from './recipient'
+import { CyclosTransaction } from './transaction'
 
-import { BackendFactories, BackendAbstract } from ".."
+import { BackendFactories, BackendAbstract } from '..'
 
 interface IJsonDataWithOwner extends t.JsonData {
     owner_id: string
@@ -17,8 +17,13 @@ interface IJsonDataWithOwner extends t.JsonData {
 
 export abstract class CyclosBackendAbstract extends BackendAbstract {
 
-    private getSubBackend(jsonData: IJsonDataWithOwner) {
-        let { httpRequest, base64Encode, persistentStore, requestLogin } = this
+    private getSubBackend (jsonData: IJsonDataWithOwner) {
+        const {
+            httpRequest,
+            base64Encode,
+            persistentStore,
+            requestLogin,
+        } = this
         class CyclosUserAccount extends CyclosUserAccountAbstract {
             httpRequest = httpRequest
             base64Encode = base64Encode
@@ -27,23 +32,33 @@ export abstract class CyclosBackendAbstract extends BackendAbstract {
 
             // This function declaration seems necessary for typescript
             // to avoid having issues with this dynamic abstract class
-            constructor(backends: { [index: string]: t.IBackend }, jsonData: IJsonDataWithOwner) {
+            constructor (
+                backends: { [index: string]: t.IBackend },
+                jsonData: IJsonDataWithOwner
+            ) {
                 super(backends, jsonData)
             }
         }
         return new CyclosUserAccount(this.backends, jsonData)
     }
 
-    private get userAccounts() {
+    private get userAccounts () {
         if (!this._userAccounts) {
             this._userAccounts = {}
-            this.jsonData.user_accounts.forEach((userAccountData: IJsonDataWithOwner) => {
-                let cyclosUserAccount = this.getSubBackend(userAccountData)
-                this._userAccounts[cyclosUserAccount.internalId] = cyclosUserAccount
-            })
+            this.jsonData.user_accounts.forEach(
+                (userAccountData: IJsonDataWithOwner) => {
+                    const cyclosUserAccount = this.getSubBackend(
+                        userAccountData
+                    )
+                    this._userAccounts[
+                        cyclosUserAccount.internalId
+                    ] = cyclosUserAccount
+                }
+            )
         }
         return this._userAccounts
     }
+
     private _userAccounts: any
 
 
@@ -58,11 +73,11 @@ export abstract class CyclosBackendAbstract extends BackendAbstract {
         }
         return backendBankAccounts
     }
-    public async getAccounts(): Promise<any> {
-        let backendBankAccounts = []
+    public async getAccounts (): Promise<any> {
+        const backendBankAccounts = []
         for (const id in this.userAccounts) {
-            let userAccount = this.userAccounts[id]
-            let bankAccounts = await userAccount.getAccounts()
+            const userAccount = this.userAccounts[id]
+            const bankAccounts = await userAccount.getAccounts()
             bankAccounts.forEach((bankAccount: any) => {
                 backendBankAccounts.push(bankAccount)
             })
@@ -71,48 +86,55 @@ export abstract class CyclosBackendAbstract extends BackendAbstract {
     }
 
 
-    public makeRecipients(jsonData: t.JsonData): t.IRecipient[] {
-        let recipients = []
+    public makeRecipients (jsonData: t.JsonData): t.IRecipient[] {
+        const recipients = []
         if (Object.keys(this.userAccounts).length === 0) {
-            throw new Error("Current user has no account in cyclos. Unsupported yet.")
+            throw new Error(
+                'Current user has no account in cyclos. Unsupported yet.'
+            )
         }
         if (Object.keys(this.userAccounts).length > 1) {
             // We will need to select one of the source userAccount of the
             // current logged in user
-            throw new Error("Current user has more than one account in cyclos. Unsupported yet.")
+            throw new Error(
+                'Current user has more than one account in cyclos. ' +
+                    'Unsupported yet.'
+            )
         }
         jsonData.monujo_backends[this.internalId].forEach((ownerId: string) => {
             // Each ownerId here is a different account in cyclos for recipient
-            recipients.push(new CyclosRecipient(
-                {
-                    cyclos: Object.values(this.userAccounts)[0],
-                    ...this.backends
-                },
-                this,
-                {
-                    odoo: jsonData,
-                    cyclos: { owner_id: ownerId }
-                }
-            ))
+            recipients.push(
+                new CyclosRecipient(
+                    {
+                        cyclos: Object.values(this.userAccounts)[0],
+                        ...this.backends,
+                    },
+                    this,
+                    {
+                        odoo: jsonData,
+                        cyclos: { owner_id: ownerId },
+                    }
+                )
+            )
         })
         return recipients
     }
 
 
-    get internalId() {
-        let endingPart = this.jsonData.user_accounts[0].url.split("://")[1];
-        let splits = endingPart.split("/");
-        let host = splits[0]
+    get internalId () {
+        const endingPart = this.jsonData.user_accounts[0].url.split('://')[1]
+        const splits = endingPart.split('/')
+        const host = splits[0]
         return `cyclos:${host}`
     }
 
 
-    public async getTransactions(): Promise<any> {
-        let backendTransactions = []
+    public async getTransactions (): Promise<any> {
+        const backendTransactions = []
         for (const id in this.userAccounts) {
-            let userAccount = this.userAccounts[id]
+            const userAccount = this.userAccounts[id]
             // XXXvlab: these promises should be awaited in parallel
-            let transactions = await userAccount.getTransactions()
+            const transactions = await userAccount.getTransactions()
             transactions.forEach((transaction: any) => {
                 backendTransactions.push(transaction)
             })
@@ -123,15 +145,14 @@ export abstract class CyclosBackendAbstract extends BackendAbstract {
 }
 
 
-
 export abstract class CyclosUserAccountAbstract extends JsonRESTPersistentClientAbstract {
 
-    AUTH_HEADER = "Session-token"
+    AUTH_HEADER = 'Session-token'
 
     ownerId: string
     backends: { [index: string]: t.IBackend }
 
-    constructor(backends, jsonData) {
+    constructor (backends, jsonData) {
         super(jsonData.url)
         this.lazySetApiToken(jsonData.token)
         this.ownerId = jsonData.owner_id
@@ -139,37 +160,42 @@ export abstract class CyclosUserAccountAbstract extends JsonRESTPersistentClient
     }
 
     accounts: CyclosAccount[]
-    async getAccounts() {
-        let jsonAccounts = await this.$get(`/${this.ownerId}/accounts`)
-        let accounts = []
+    async getAccounts () {
+        const jsonAccounts = await this.$get(`/${this.ownerId}/accounts`)
+        const accounts = []
         jsonAccounts.forEach((jsonAccountData: any) => {
-            accounts.push(new CyclosAccount(
-                { cyclos: this, ...this.backends },
-                this,
-                { cyclos: jsonAccountData }))
+            accounts.push(
+                new CyclosAccount({ cyclos: this, ...this.backends }, this, {
+                    cyclos: jsonAccountData,
+                })
+            )
         })
         this.accounts = accounts
         return accounts
     }
 
-    get internalId() {
+    get internalId () {
         return `cyclos:${this.ownerId}@${this.host}`
     }
 
-    public async getTransactions(): Promise<any> {
-        let jsonTransactions = await this.$get(`/${this.ownerId}/transactions`)
-        let transactions = []
+    public async getTransactions (): Promise<any> {
+        const jsonTransactions = await this.$get(
+            `/${this.ownerId}/transactions`
+        )
+        const transactions = []
         jsonTransactions.forEach((jsonTransactionData: any) => {
-            transactions.push(new CyclosTransaction(
-                { 'cyclos': this, ...this.backends },
-                this,
-                { 'cyclos': jsonTransactionData }
-            ))
+            transactions.push(
+                new CyclosTransaction(
+                    { cyclos: this, ...this.backends },
+                    this,
+                    { cyclos: jsonTransactionData }
+                )
+            )
         })
         return transactions
     }
 
-    public async request(path: string, opts: t.HttpOpts): Promise<any> {
+    public async request (path: string, opts: t.HttpOpts): Promise<any> {
         let response: any
         try {
             response = await super.request(path, opts)
@@ -179,15 +205,18 @@ export abstract class CyclosUserAccountAbstract extends JsonRESTPersistentClient
             if (err.code === 401) {
                 let errCode: string
                 try {
-                    let data = JSON.parse(err.data)
+                    const data = JSON.parse(err.data)
                     errCode = data.code
                 } catch (err2) {
-                    console.log('Could not get error code from JSON request body', err2)
+                    console.log(
+                        'Could not get error code from JSON request body',
+                        err2
+                    )
                     throw err
                 }
-                if (errCode === "loggedOut") {
+                if (errCode === 'loggedOut') {
                     console.log('Authentication Required')
-                    throw new e.AuthenticationRequired("Authentication Failed")
+                    throw new e.AuthenticationRequired('Authentication Failed')
                 }
             }
             throw err

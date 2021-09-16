@@ -1,15 +1,15 @@
 
-import { OdooRESTAbstract } from "./backend/odoo"
+import { OdooRESTAbstract } from './backend/odoo'
 
-import * as e from "./rest/exception"
-import * as t from "./type"
+import * as e from './rest/exception'
+import * as t from './type'
 
-import { BackendFactories } from "./backend"
-
+import { BackendFactories } from './backend'
+import { getHostOrUrlParts } from './rest'
 
 // Load backends
 
-import "./backend/cyclos"
+import './backend/cyclos'
 
 
 abstract class LokAPIAbstract extends OdooRESTAbstract {
@@ -25,9 +25,9 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
      *
      * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
      */
-    public async login(login: string, password: string): Promise<any> {
-        let authData = await super.login(login, password)
-        this._backend_credentials = authData.prefetch.backend_credentials
+    public async login (login: string, password: string): Promise<any> {
+        const authData = await super.login(login, password)
+        this._backendCredentials = authData.prefetch.backend_credentials
         this._backends = false // force prefetch
         return true
     }
@@ -38,15 +38,19 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
      *
      * @returns Object
      */
-    private async getBackendCredentials(): Promise<any> {
-        // XXXvlab: cached, should transition to general cache decorator to allow
-        // fine control of when we required a fetch.
-        if (!this._backend_credentials) {
-            this._backend_credentials = await this.$post('/partner/backend_credentials')
+    private async getBackendCredentials (): Promise<any> {
+        // XXXvlab: cached, should transition to general cache
+        // decorator to allow fine control of when we required a
+        // fetch.
+        if (!this._backendCredentials) {
+            this._backendCredentials = await this.$post(
+                '/partner/backend_credentials'
+            )
         }
-        return this._backend_credentials
+        return this._backendCredentials
     }
-    private _backend_credentials: any
+
+    private _backendCredentials: any
 
 
     /**
@@ -56,24 +60,28 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
      *
      * @returns Object
      */
-    private async getBackends(): Promise<any> {
-        // XXXvlab: cached, should transition to general cache decorator to allow
-        // fine control of when we required a fetch.
+    private async getBackends (): Promise<any> {
+        // XXXvlab: cached, should transition to general cache
+        // decorator to allow fine control of when we required a
+        // fetch.
         if (!this._backends) {
-            let backend_credentials = await this.getBackendCredentials()
-            this._backends = this.makeBackends(backend_credentials)
+            const backendCredentials = await this.getBackendCredentials()
+            this._backends = this.makeBackends(backendCredentials)
         }
         return this._backends
     }
+
     private _backends: any
 
-    private makeBackends(backend_credentials: any): any {
-        let backends = {}
-        let { httpRequest, base64Encode, persistentStore, requestLogin } = this
-        backend_credentials.forEach((backendData: any) => {
-            let BackendClassAbstract = BackendFactories[backendData.type]
+    private makeBackends (backendCredentials: any): any {
+        const backends = {}
+        const { httpRequest, base64Encode, persistentStore, requestLogin } = this
+        backendCredentials.forEach((backendData: any) => {
+            const BackendClassAbstract = BackendFactories[backendData.type]
             if (!BackendClassAbstract) {
-                console.log(`Data received for unknown backend ${backendData.type}`)
+                console.log(
+                    `Data received for unknown backend ${backendData.type}`
+                )
                 return
             }
             class Backend extends BackendClassAbstract {
@@ -84,7 +92,10 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
 
                 // This function declaration seems necessary for typescript
                 // to avoid having issues with this dynamic abstract class
-                constructor(...args) { super(...args) }
+                // eslint-disable-next-line no-useless-constructor
+                constructor (...args) {
+                    super(...args)
+                }
             }
             let backend: any
             try {
@@ -106,23 +117,22 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
      *
      * @returns Object
      */
-    public async getAccounts(): Promise<any> {
+    public async getAccounts (): Promise<any> {
         // XXXvlab: to cache with global cache decorator that allow fine control
         // of forceRefresh
-        let backends = await this.getBackends()
-        let lokapiBankAccounts = []
+        const backends = await this.getBackends()
+        const lokapiBankAccounts = []
         for (const id in backends) {
-            let backend = backends[id]
+            const backend = backends[id]
             // XXXvlab: should go for parallel waits
-            let bankAccounts = await backend.getAccounts() || []
+            const bankAccounts = await backend.getAccounts()
             bankAccounts.forEach((bankAccount: any) => {
                 lokapiBankAccounts.push(bankAccount)
             })
         }
         return lokapiBankAccounts
     }
-
-    get accounts() {
+   get accounts() {
         let backends = this._backends
         if (!backends) {
             return [];
@@ -138,10 +148,15 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
         return lokapiBankAccounts
 
     }
-    
+
+
     /**
-     * Get list of Recipients (partners that can receive money from
-     * me) matching given string filter.
+     * Get list of non-Professional Recipients (contacts with an
+     * account information that can receive money from me) matching
+     * given string filter. Note that if value is empty, it'll list
+     * only all the favorites. If value is not empty, it'll filter by
+     * value in all recipient (favorites or not) and return result
+     * ordered by `favorite` and `name`.
      *
      * @param value The given string will be searched in name, email, phone
      *
@@ -149,25 +164,63 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
      *
      * @returns Array<t.IRecipient>
      */
-    public async searchRecipients(value: string): Promise<t.IRecipient[]> {
-        // XXXvlab: to cache with global cache decorator that allow fine control
-        // of forceRefresh
-
-        let backends = await this.getBackends()
-        let partners = await this.$get('/partner/partner_search', {
-            "value": value,
-            "backend_keys": Object.keys(backends),
-            // "offset": 0,
-            // "limit": 40,
+    public async searchRecipients (
+        value: string,
+    ): Promise<t.IRecipient[]> {
+        const backends = await this.getBackends()
+        const partners = await this.$get('/partner/search', {
+            value: value,
+            backend_keys: Object.keys(backends),
+            order: 'is_favorite desc, name',
         })
-        let recipients = []
-        for (let index = 0; index < partners.rows.length; index++) {
-            recipients.push(...(await this.makeRecipient(partners.rows[index])))
-        }
+        const recipients = []
+        partners.rows.forEach((partnerData: any) => {
+            Object.keys(partnerData.monujo_backends).forEach(
+                (backendId: string) => {
+                    const backendRecipients = backends[backendId].makeRecipients(
+                        partnerData
+                    )
+                    backendRecipients.forEach((recipient: any) => {
+                        recipients.push(recipient)
+                    })
+                }
+            )
+        })
         return recipients
     }
 
-    public async makeRecipient(partnerData): Promise<Array<t.IRecipient>> {
+
+    /**
+     * Same as searchRecipients(), but returning only professional
+     * recipients.
+     *
+     * Paging is available and should be used.
+     *
+     * @param value The given string will be searched in name, email, phone
+     *
+     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
+     *
+     * @returns Array<t.IRecipient>
+     */
+    public async searchProRecipients (
+        value: string,
+    ): Promise<t.IRecipient[]> {
+        // XXXvlab: to cache with global cache decorator that allow fine control
+        // of forceRefresh
+        const backends = await this.getBackends()
+        const partners = await this.$get('/partner/search', {
+            value: value,
+            backend_keys: Object.keys(backends),
+            order: 'is_favorite desc, name',
+            is_company: 1,
+        })
+        const recipients = []
+         for (let index = 0; index < partners.rows.length; index++) {
+            recipients.push(...(await this.makeRecipient(partners.rows[index])))
+        }
+        return recipients
+            }
+     public async makeRecipient(partnerData): Promise<Array<t.IRecipient>> {
         if (partnerData) {
             let recipients = []
             let backends = await this.getBackends()
@@ -182,6 +235,7 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
     }
 
 
+
     /**
      * Get recipients from a QR code url string. It'll return a recipient per
      * backend.
@@ -192,12 +246,28 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
      *
      * @returns {Object
      */
-    public async getRecipientsFromUrl(url: string): Promise<t.IRecipient[]> {
-        let backends = await this.getBackends()
-        let partner
+    public async getRecipientsFromUrl (url: string): Promise<t.IRecipient[]> {
+        const backends = await this.getBackends()
+        const urlParts = getHostOrUrlParts(url)
+        if (
+            urlParts.protocol !== this.protocol ||
+            urlParts.host !== this.host ||
+            urlParts.port !== this.port
+        ) {
+            throw new e.UrlFromWrongServer(
+                'Url provided is not from current server'
+            )
+        }
+        let id: number
         try {
-            partner = await this.$get('/partner/get_by_url', {
-                url,
+            id = parseInt(url.split('-').slice(-1)[0])
+        } catch (err) {
+            throw new Error(`Invalid url ${url}`)
+        }
+        let partner: any
+        try {
+            partner = await this.$get(`/partner/get`, {
+                id,
                 backend_keys: Object.keys(backends),
             })
         } catch (err) {
@@ -205,9 +275,9 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
                 return []
             }
         }
-        let recipients = []
+        const recipients = []
         Object.keys(partner.monujo_backends).forEach((backendId: string) => {
-            let backendRecipients = backends[backendId].makeRecipients(partner)
+            const backendRecipients = backends[backendId].makeRecipients(partner)
             backendRecipients.forEach((recipient: any) => {
                 recipients.push(recipient)
             })
@@ -223,13 +293,13 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
      *
      * @returns Object
      */
-    public async getTransactions(): Promise<any> {
+    public async getTransactions (): Promise<any> {
         const backends = await this.getBackends()
         const lokapiTransactions = []
         for (const id in backends) {
-            let backend = backends[id]
+            const backend = backends[id]
             // XXXvlab: should go for parallel waits
-            let transactions = await backend.getTransactions()
+            const transactions = await backend.getTransactions()
             transactions.forEach((transaction: any) => {
                 lokapiTransactions.push(transaction)
             })
