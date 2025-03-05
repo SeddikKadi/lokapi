@@ -21,7 +21,7 @@ export class Contact extends BridgeObject implements t.IContact {
         return this.jsonData.odoo.id
     }
 
-    get is_company () {
+    get isBusiness () {
         return this.jsonData.odoo.is_company
     }
 

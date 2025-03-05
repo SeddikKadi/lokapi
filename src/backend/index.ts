@@ -53,6 +53,10 @@ export abstract class BackendAbstract {
         return this.jsonData?.max_credit_amount
     }
 
+    get isAdministrativeBackendSourceOfBusinessStatus() {
+        return this.jsonData?.is_administrative_backend_source_of_business_status
+    }
+    
     get safeWalletRecipient () {
         const recipientData = this.jsonData?.safe_wallet_recipient
         if (!recipientData) {

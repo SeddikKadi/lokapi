@@ -78,7 +78,7 @@ export interface IContact extends IBridge {
     name: string
     email: string
     is_favorite: boolean
-    is_company: boolean
+    isBusiness: boolean
     mobile: string
     phone: string
     street: string
