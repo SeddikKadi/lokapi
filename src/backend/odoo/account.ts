@@ -3,7 +3,7 @@ import * as t from '../../type'
 import { BridgeObject } from '..'
 
 
-export default abstract class Account extends BridgeObject {
+export default class Account extends BridgeObject {
 
     public async getPendingTopUp() {
         let requests = await this.backends.odoo.$get(

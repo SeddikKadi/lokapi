@@ -2,6 +2,7 @@ import { t as httpRequestType } from '@0k/types-request'
 
 import * as t from '../type'
 import { Record } from '../record'
+import UserAccount from './odoo/userAccount'
 
 /**
  * Base object to implement common API between data from
@@ -129,10 +130,38 @@ export abstract class BackendAbstract {
      * @returns AsyncIterable<t.IRecipient>
      */
     public async * searchRecipients (value: string): AsyncIterable<t.IRecipient> {
+        for await (const elt of this.searchRecipientsWithEntrypoint('/partner/search', value)) {
+            yield elt
+        }
+    }
+
+        /**
+     * Get list of Recipients (contacts with an account information
+     * that can receive money from me) matching given string
+     * filter. Note that if value is empty, it'll list only all the
+     * recipients connected to favorite accounts. If value is not
+     * empty, it'll filter by value in all recipient (favorites or
+     * not) and return result ordered by `favorite` and `name`.
+     *
+     * @param value The given string will be searched in name, email, phone
+     *
+     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
+     *
+     * @returns AsyncIterable<t.IRecipient>
+     */
+    public async * searchAllRecipients (value: string): AsyncIterable<t.IRecipient> {
+        for await (const elt of this.searchRecipientsWithEntrypoint('/partner/search_all',value)) {
+            yield elt
+        }
+    }
+
+
+
+    private async * searchRecipientsWithEntrypoint (entrypoint: string, value: string): AsyncIterable<t.IRecipient> {
         let offset = 0
         const limit = 30
         while (true) {
-            const partners = await this.backends.odoo.$get('/partner/search', {
+            const partners = await this.backends.odoo.$get(entrypoint, {
                 value: value,
                 backend_keys: [this.internalId],
                 offset,
@@ -176,6 +205,11 @@ export abstract class BackendAbstract {
         // only one recipient.
         return this.makeRecipients(partner)[0]
     }
+
+    // protected getUserAccountsFromWalletIdent(currencyIdent: string, walletIdent: string): any {
+    //     throw new Error('Backend does not implement `.getUserAccountsFromWalletIdent()` yet.')
+    // }
+
 }
 
 

@@ -293,6 +293,104 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
         }
     }
 
+
+
+        /**
+     * Get list of Recipients (contacts with an account information
+     * that can receive money from me) matching given string
+     * filter. Note that if value is empty, it'll list only all the
+     * recipients connected to favorite accounts. If value is not
+     * empty, it'll filter by value in all recipient (favorites or
+     * not) and return result ordered by `favorite` and `name`.
+     *
+     * @param value The given string will be searched in name, email, phone
+     *
+     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
+     *
+     * @returns AsyncIterable<t.IRecipient>
+     */
+    public async * searchAllRecipients (value: string): AsyncIterable<t.IRecipient> {
+        let offset = 0
+        const limit = 30
+        const backends = await this.getBackends()
+        while (true) {
+            const partners = await this.$get('/partner/search_all', {
+                value: value,
+                backend_keys: Object.keys(backends),
+                offset,
+                limit,
+                order: 'is_favorite desc, name',
+            })
+            const markBackend = Object.keys(backends).length > 1
+            for (const partnerData of partners.rows) {
+                for (const backendId of Object.keys(
+                    partnerData.monujo_backends
+                )) {
+                    if (!backends[backendId].jsonData.accounts.length) {
+                        return // don't have this backend anyway
+                    }
+                    const backendRecipients =
+                        backends[backendId].makeRecipients(partnerData)
+                    for (const recipient of backendRecipients) {
+                        recipient.markBackend = markBackend
+                        yield recipient
+                    }
+                }
+            }
+            if (partners.rows.length < limit) return
+            offset += limit
+        }
+    }
+
+
+       /**
+     * Get recipient (contact with an account information that can
+     * receive money from me) matching given data.
+     *
+     * @param data internal key required by the backend
+     *
+     * @throws {RequestFailed, APIRequestFailed, InvalidCredentials, InvalidJson}
+     *
+     * @returns Promise<t.IRecipient>
+     */
+    public async searchRecipientByUri(data: t.JsonData): Promise<t.IRecipient[]> {
+        const backends = await this.getBackends()
+        
+        let partner = await this.$get(
+            '/partner/get_recipient_by_uri',
+            {
+                data,
+                backend_keys: Object.keys(backends)
+            }
+        )
+
+        const recipients = []
+        const markBackend = Object.keys(backends).length > 1
+
+        for (const backendId of Object.keys(
+            partner.monujo_backends
+        )) {
+            if (!backends[backendId].jsonData.accounts.length) {
+                return // don't have this backend anyway
+            }
+            const backendRecipients =
+                backends[backendId].makeRecipients(partner)
+            for (const recipient of backendRecipients) {
+                recipient.markBackend = markBackend
+                recipients.push(recipient)
+            }
+        }
+
+        if(recipients.length === 0){
+            throw new Error("No recipients matching URI in our backends")
+        }
+        if(recipients.length > 1){
+            throw new Error("Received more than one recipients matching URI in our backends")
+        }
+        return recipients[0]
+    }
+
+
     public async getStagingUserAccounts () {
         const backends = await this.getBackends()
         const partners = await this.$get('/partner/accounts', {
@@ -414,6 +512,23 @@ abstract class LokAPIAbstract extends OdooRESTAbstract {
                 (b: BackendAbstract) => b.getTransactions(opts)),
             opts?.order || ['-date']
         )
+    }
+
+
+    public async getUserAccountsFromWalletUri(walletUri: string) {
+        const splitArray = walletUri.split("/")
+        const walletIdent = splitArray.pop()
+        const currencyUri = splitArray.join("/")
+        const [_, currencyIdent] = currencyUri.split(":")
+
+        const backends = await this.getBackends()
+
+        var backend = backends[currencyUri]
+        if (!backend) {
+          throw new Error(`backend ${currencyUri} not found`)
+        }
+
+        return backend.getUserAccountsFromWalletIdent(currencyIdent, walletIdent)
     }
 
     /**
