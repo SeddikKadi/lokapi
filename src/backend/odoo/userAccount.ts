@@ -3,11 +3,14 @@ import { t } from '../..'
 import { singleton } from '../../cache'
 import { buildUserUri, parseUri } from '../../uri'
 import { LccApiClient } from '../../rest/lccApi'
+import PaymentRequest from './paymentRequest'
 
 
 export default abstract class UserAccount extends BridgeObject {
 
     abstract internalId: string
+    abstract getAccounts(): Promise<any[]>
+    abstract getCurrencyId(): string
 
     /**
      * Plugin-specific identifier for this user account.
@@ -28,7 +31,6 @@ export default abstract class UserAccount extends BridgeObject {
     get isTopUpAllowed() {
         return this.jsonData?.is_topup_allowed !== false
     }
-
 
     /**
      * LCC API client pre-configured with this user account's
@@ -205,4 +207,26 @@ export default abstract class UserAccount extends BridgeObject {
         )
     }
 
+    /**
+     * Get payment requests for this user account (wallet)
+     *
+     * @param state - Array of states to filter (e.g. ["open"], ["paid", "refused"])
+     *
+     * @returns Array of PaymentRequest objects
+     */
+    public async getPaymentRequests(state: string[]): Promise<t.IPaymentRequest[]> {
+        const currencyId = this.getCurrencyId()
+        const backendType = this.internalId.split(':')[0]
+        const currency_uri = `${backendType}:${currencyId}`
+
+        const requests = await this.lccApi.$get(
+            '/payment_request/list-payment-requests',
+            {
+                wallet_uri: this.internalId,
+                currency_uri: currency_uri,
+                state: state,
+            }
+        )
+        return requests.map((e: any) => new PaymentRequest(this.backends, this, e))
+    }
 }
