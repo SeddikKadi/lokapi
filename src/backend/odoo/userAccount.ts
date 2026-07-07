@@ -3,6 +3,7 @@ import { t } from '../..'
 import { singleton } from '../../cache'
 import { buildUserUri, parseUri } from '../../uri'
 import { LccApiClient } from '../../rest/lccApi'
+import { PermissionDenied } from '../../exception'
 import PaymentRequest from './paymentRequest'
 import RecurrentContract from './recurrentContract'
 
@@ -31,6 +32,10 @@ export default abstract class UserAccount extends BridgeObject {
 
     get isTopUpAllowed() {
         return this.jsonData?.is_topup_allowed !== false
+    }
+
+    get isPaymentRequestAllowed() {
+        return this.jsonData?.is_payment_request_allowed === true
     }
 
     /**
@@ -239,6 +244,12 @@ export default abstract class UserAccount extends BridgeObject {
             message?: string
         }>
     ): Promise<number[]> {
+        if (!this.isPaymentRequestAllowed) {
+            throw new PermissionDenied(
+                'Payment request creation is not allowed for this account'
+            )
+        }
+
         const currencyId = this.getCurrencyId()
         const backendType = this.internalId.split(':')[0]
         const currency_uri = `${backendType}:${currencyId}`
@@ -290,6 +301,12 @@ export default abstract class UserAccount extends BridgeObject {
             recurring_interval: number
         }>
     ): Promise<number[]> {
+        if (!this.isPaymentRequestAllowed) {
+            throw new PermissionDenied(
+                'Payment request creation is not allowed for this account'
+            )
+        }
+
         const currencyId = this.getCurrencyId()
         const backendType = this.internalId.split(':')[0]
         const currency_uri = `${backendType}:${currencyId}`
